@@ -157,21 +157,24 @@ estim_prop_raisons <- raisons_results
 estim_prop_limites <- limites_results
 
 # ==================================================
-# POST-STRATIFICATION SIMPLE (à remplacer par vos valeurs)
+# POST-STRATIFICATION PAR TROIS VARIABLES
 # ==================================================
-# Exposé :
-# - Remplacez `VAR_STRATE` par le nom de la colonne de strate dans `data_filtre`.
-# - Complétez `pop_counts` par les effectifs connus de la population par strate.
-# - Le code calcule, pour chaque modalité d'une variable à choix multiple,
-#   l'estimateur post-stratifié de la proportion, sa variance approchée
-#   (formule post-stratifiée) et l'IC 95%.
+# Les trois variables de stratification :
+# 1. mention
+# 2. Annee_etude
+# 3. Sexe
+#
+# Pour chaque variable, fournir les effectifs de population par strate.
 
-# Nom de la variable de stratification (remplacer par le nom réel)
-VAR_STRATE <- "NOM_VARIABLE_POUR_STRATIFICATION"  # <- remplacer
+# REMPLACER PAR LES VALEURS RÉELLES :
+# Totaux de population pour la strate "mention"
+pop_mention <- c("MENTION_1" = 1000, "MENTION_2" = 2000, "MENTION_3" = 1500)  # <- remplacer
 
-# Totaux de population par strate (remplacer par les valeurs réelles)
-# Exemple : pop_counts <- c("StrateA" = 1000, "StrateB" = 2000)
-pop_counts <- c( "STRATE_1" = 1234, "STRATE_2" = 2345 )  # <- remplacer
+# Totaux de population pour la strate "Annee_etude"
+pop_annee <- c("ANNEE_1" = 2000, "ANNEE_2" = 2000, "ANNEE_3" = 500)  # <- remplacer
+
+# Totaux de population pour la strate "Sexe"
+pop_sexe <- c("M" = 2600, "F" = 1900)  # <- remplacer
 
 # Fonction post-stratifiée pour une variable à choix multiple
 poststrat_proportions <- function(df, var_q, strata_var, pop_counts, sep = ";") {
@@ -260,28 +263,56 @@ poststrat_proportions <- function(df, var_q, strata_var, pop_counts, sep = ";") 
   return(res)
 }
 
-# Application du post-stratification (exemples pour usages/raisons/limites)
-cat('\n', strrep('-', 80), '\n')
-cat('POST-STRATIFICATION : remplacez VAR_STRATE et pop_counts par vos valeurs', '\n')
-cat(strrep('-', 80), '\n')
+# Application du post-stratification par mention
+cat('\n', strrep('=', 80), '\n')
+cat('POST-STRATIFICATION PAR MENTION', '\n')
+cat(strrep('=', 80), '\n')
 
-# Vérifier que la variable de strate existe
-if (!VAR_STRATE %in% names(data_filtre)) {
-  cat('ATTENTION : la variable de stratification', VAR_STRATE, 'n\'existe pas dans data_filtre.\n')
-  cat('Remplacez VAR_STRATE par le nom réel et complétez pop_counts.\n')
-} else {
-  post_usages <- poststrat_proportions(data_filtre, 'X45..RP_PN_IA_usages', VAR_STRATE, pop_counts)
-  cat('\nPost-stratifié - USAGES\n')
-  print(post_usages)
+post_usages_mention <- poststrat_proportions(data_filtre, 'X45..RP_PN_IA_usages', 'mention', pop_mention)
+cat('\nPost-stratifié - USAGES (par mention)\n')
+print(post_usages_mention)
 
-  post_raisons <- poststrat_proportions(data_filtre, 'X47..RP_PN_IA_raisons', VAR_STRATE, pop_counts)
-  cat('\nPost-stratifié - RAISONS\n')
-  print(post_raisons)
+post_raisons_mention <- poststrat_proportions(data_filtre, 'X47..RP_PN_IA_raisons', 'mention', pop_mention)
+cat('\nPost-stratifié - RAISONS (par mention)\n')
+print(post_raisons_mention)
 
-  post_limites <- poststrat_proportions(data_filtre, 'X53..RP_PN_IALimites', VAR_STRATE, pop_counts)
-  cat('\nPost-stratifié - LIMITES\n')
-  print(post_limites)
-}
+post_limites_mention <- poststrat_proportions(data_filtre, 'X53..RP_PN_IALimites', 'mention', pop_mention)
+cat('\nPost-stratifié - LIMITES (par mention)\n')
+print(post_limites_mention)
+
+# Application du post-stratification par Annee_etude
+cat('\n', strrep('=', 80), '\n')
+cat('POST-STRATIFICATION PAR ANNEE D\'ETUDE', '\n')
+cat(strrep('=', 80), '\n')
+
+post_usages_annee <- poststrat_proportions(data_filtre, 'X45..RP_PN_IA_usages', 'Annee_etude', pop_annee)
+cat('\nPost-stratifié - USAGES (par année d\'étude)\n')
+print(post_usages_annee)
+
+post_raisons_annee <- poststrat_proportions(data_filtre, 'X47..RP_PN_IA_raisons', 'Annee_etude', pop_annee)
+cat('\nPost-stratifié - RAISONS (par année d\'étude)\n')
+print(post_raisons_annee)
+
+post_limites_annee <- poststrat_proportions(data_filtre, 'X53..RP_PN_IALimites', 'Annee_etude', pop_annee)
+cat('\nPost-stratifié - LIMITES (par année d\'étude)\n')
+print(post_limites_annee)
+
+# Application du post-stratification par Sexe
+cat('\n', strrep('=', 80), '\n')
+cat('POST-STRATIFICATION PAR SEXE', '\n')
+cat(strrep('=', 80), '\n')
+
+post_usages_sexe <- poststrat_proportions(data_filtre, 'X45..RP_PN_IA_usages', 'Sexe', pop_sexe)
+cat('\nPost-stratifié - USAGES (par sexe)\n')
+print(post_usages_sexe)
+
+post_raisons_sexe <- poststrat_proportions(data_filtre, 'X47..RP_PN_IA_raisons', 'Sexe', pop_sexe)
+cat('\nPost-stratifié - RAISONS (par sexe)\n')
+print(post_raisons_sexe)
+
+post_limites_sexe <- poststrat_proportions(data_filtre, 'X53..RP_PN_IALimites', 'Sexe', pop_sexe)
+cat('\nPost-stratifié - LIMITES (par sexe)\n')
+print(post_limites_sexe)
 
 # =============================================================================
 # ANALYSE DES FRÉQUENCES D'UTILISATION DES IA GENERATIVES
