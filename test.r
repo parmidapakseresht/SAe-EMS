@@ -176,6 +176,29 @@ for (cname in cols) {
   print(analyse_col(cname), row.names = FALSE)
 }
 
+# === Analyse des fréquences d'utilisation (variables individuelles) ===
+# colonnes individuelles de fréquence
+freq_cols <- c("X36..ChatGPT", "X37..DeepL", "X38..Copilot", "X39..Grammarly", "X40..Perplexity", "X41..Autre")
+
+for (fc in freq_cols) {
+  if (!fc %in% names(data)) next
+  cat('\n', '--- Fréquences :', fc, '---\n')
+  vec <- data[[fc]]
+  tab <- table(factor(vec, exclude = NULL), useNA = 'ifany')
+  df <- as.data.frame(tab, stringsAsFactors = FALSE)
+  names(df) <- c('modalite', 'effectif')
+  # remplacer NA par "Non-reponse"
+  df$modalite[is.na(df$modalite)] <- 'Non-reponse'
+  df$proportion <- df$effectif / n
+  df$variance <- df$proportion * (1 - df$proportion) / n
+  df$se <- sqrt(df$variance)
+  df$IC_low <- pmax(0, df$proportion - 1.96 * df$se)
+  df$IC_high <- pmin(1, df$proportion + 1.96 * df$se)
+  df$pourcent <- df$proportion * 100
+  df <- df[order(-df$effectif), ]
+  print(df, row.names = FALSE)
+}
+
 # Fin (version courte)
 cat('\nPost-stratifié - USAGES (par année d\'étude)\n')
 
