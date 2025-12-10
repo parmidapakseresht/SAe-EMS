@@ -138,154 +138,45 @@ afficher_resultats(usages_results, "ANALYSE DES USAGES")
 # ===== RAISONS =====
 print("===== RAISONS =====")
 raisons_count <- compter_modalites(raisons)
-# Script simplifié d'analyse des sondages
-# - compte des modalités (y compris non-réponses)
-# - estimateur de proportion, variance avec correction finie (si N connu), IC95
-# - post-stratification simple par une variable de strate
-# Le code est volontairement compact et commenté pour un débutant.
+# VERSION TRÈS SIMPLE — pour débutant
+#  - compte les modalités (y compris non-réponses)
+#  - calcule proportion p = effectif / n, variance p(1-p)/n et IC95
 
-# === Chargement des données ===
+# charger et filtrer (si besoin)
 data <- read.csv("Extractionfusion_pour_CB_Termine.csv", sep = ";", stringsAsFactors = FALSE)
-# Filtre temporel (garder si utile)
 data <- subset(data, data$X96..DATE_ENREG <= "03/12/2025 15:30:00")
 
-# === Fonctions simples ===
-# Compter modalités dans une colonne de réponses multiples (séparateur ';')
-compter_modalites <- function(col, sep = ";") {
-  n_non <- 0
-  all_el <- c()
-  for (v in col) {
-    if (is.na(v) || v == "") {
-      n_non <- n_non + 1
-    } else {
-      parts <- trimws(unlist(strsplit(v, sep)))
-      all_el <- c(all_el, parts)
-    }
-  }
-  tab <- as.data.frame(table(all_el), stringsAsFactors = FALSE)
-  if (n_non > 0) tab <- rbind(tab, data.frame(all_el = "Non-reponse", Freq = n_non))
-  names(tab) <- c("modalite", "effectif")
-  tab[order(-tab$effectif), , drop = FALSE]
+n <- nrow(data) # taille de l'échantillon
+
+# fonction minimale : analyse une colonne à choix multiple
+analyse_col <- function(col_name) {
+  v <- data[[col_name]]
+  # compter modalités
+  counts <- table(unlist(strsplit(paste(v[!is.na(v) & v != ""], collapse = ";"), ";")))
+  counts <- as.data.frame(counts, stringsAsFactors = FALSE)
+  names(counts) <- c("modalite", "effectif")
+  # ajouter non-réponses
+  n_non <- sum(is.na(v) | v == "")
+  if (n_non > 0) counts <- rbind(counts, data.frame(modalite = "Non-reponse", effectif = n_non))
+  # calculs simples
+  counts$proportion <- counts$effectif / n
+  counts$variance <- counts$proportion * (1 - counts$proportion) / n
+  counts$se <- sqrt(counts$variance)
+  counts$IC_low <- pmax(0, counts$proportion - 1.96 * counts$se)
+  counts$IC_high <- pmin(1, counts$proportion + 1.96 * counts$se)
+  counts$pourcent <- counts$proportion * 100
+  counts[order(-counts$effectif), ]
 }
 
-# Calculer proportion, variance (avec facteur 1-f si N_population fourni), IC95
-calc_stats <- function(effectifs, n_sample, N_population = NULL) {
-  p <- effectifs / n_sample
-  if (is.null(N_population)) {
-    f <- 0  # pas de correction finie si N inconnu
-  } else {
-    f <- n_sample / N_population
-  }
-  var_p <- (p * (1 - p) / n_sample) * (1 - f)
-  se <- sqrt(var_p)
-  z <- 1.96
-  ic_low <- p - z * se
-  ic_high <- p + z * se
-  ic_low <- pmax(0, ic_low)
-  ic_high <- pmin(1, ic_high)
-  data.frame(proportion = p, pct = p * 100, variance = var_p, se = se, IC_low = ic_low, IC_high = ic_high)
+# colonnes d'intérêt
+cols <- c("X45..RP_PN_IA_usages", "X47..RP_PN_IA_raisons", "X53..RP_PN_IALimites")
+
+for (cname in cols) {
+  cat('\n', '--- Analyse simple :', cname, '---\n')
+  print(analyse_col(cname), row.names = FALSE)
 }
 
-# Post-stratification simple
-# - df: dataframe
-# - var_q: colonne question (choix multiples)
-# - strata: colonne de stratification (factor-like)
-# - pop_counts: vecteur nommé des effectifs population par strate. Si NULL -> on utilise les effectifs d'echantillon (à remplacer par vrais totaux si disponibles)
-poststrat_simple <- function(df, var_q, strata, pop_counts = NULL, sep = ";") {
-  if (!strata %in% names(df)) stop("La variable de strate n'existe pas dans df")
-  if (is.null(pop_counts)) {
-    pop_tab <- table(df[[strata]], useNA = "no")
-    pop_counts <- as.numeric(pop_tab)
-    names(pop_counts) <- names(pop_tab)
-  }
-  Ntot <- sum(pop_counts)
-  tab_all <- compter_modalites(df[[var_q]], sep = sep)
-  mods <- tab_all$modalite
-  res <- data.frame(modalite = mods, p_post = NA, variance = NA, IC_low = NA, IC_high = NA, stringsAsFactors = FALSE)
-
-  for (m in mods) {
-    num <- 0
-    varsum <- 0
-    for (h in names(pop_counts)) {
-      N_h <- pop_counts[[h]]
-      sub <- df[df[[strata]] == h, ]
-      n_h <- nrow(sub)
-      if (n_h == 0) next
-      if (m == "Non-reponse") {
-        x_h <- sum(is.na(sub[[var_q]]) | sub[[var_q]] == "")
-      } else {
-        presente <- sapply(sub[[var_q]], function(x) { if (is.na(x) || x == "") return(FALSE); m %in% trimws(unlist(strsplit(x, sep))) })
-        x_h <- sum(presente)
-      }
-      p_h <- x_h / n_h
-      num <- num + N_h * p_h
-      f_h <- n_h / N_h
-      var_h <- (1 - f_h) * (N_h^2) * (p_h * (1 - p_h) / n_h)
-      varsum <- varsum + var_h
-    }
-    p_hat <- num / Ntot
-    var_hat <- varsum / (Ntot^2)
-    se <- sqrt(var_hat)
-    z <- 1.96
-    il <- max(0, p_hat - z * se)
-    ih <- min(1, p_hat + z * se)
-    idx <- which(res$modalite == m)
-    res$p_post[idx] <- p_hat
-    res$variance[idx] <- var_hat
-    res$IC_low[idx] <- il
-    res$IC_high[idx] <- ih
-  }
-  res$pourcent <- res$p_post * 100
-  res
-}
-
-# === Variables d'interet ===
-usages_col <- "X45..RP_PN_IA_usages"
-raisons_col <- "X47..RP_PN_IA_raisons"
-limites_col <- "X53..RP_PN_IALimites"
-
-# colonnes de stratification disponibles dans le fichier (adapter si noms differents)
-strata_vars <- c("mention", "DIP...Annee", "Individu...Sexe")
-
-# nombre echantillon
-n_sample <- nrow(data)
-
-# Si vous connaissez N population totales, mettez la valeur ci-dessous, sinon laissez NULL
-N_population <- NULL
-
-# affichage simple
-afficher_table <- function(df) print(df, row.names = FALSE)
-
-# === Proportions simples (par modalité) ===
-for (col in c(usages_col, raisons_col, limites_col)) {
-  cat('\n', strrep('=', 60), '\n')
-  cat('Analyse de :', col, '\n')
-  cat(strrep('=', 60), '\n')
-  t <- compter_modalites(data[[col]])
-  stats <- calc_stats(t$effectif, n_sample, N_population)
-  out <- cbind(t, stats)
-  afficher_table(out)
-}
-
-# === Post-stratification par chaque variable de strate ===
-for (sname in strata_vars) {
-  if (!sname %in% names(data)) next
-  cat('\n', strrep('-', 60), '\n')
-  cat('Post-stratification par :', sname, '\n')
-  cat(strrep('-', 60), '\n')
-  pop_here <- NULL # Remplacer par vecteur nommé si vous avez les totaux réels
-  post_u <- poststrat_simple(data, usages_col, sname, pop_counts = pop_here)
-  cat('\nUsages (post-stratifié):\n')
-  afficher_table(post_u)
-  post_r <- poststrat_simple(data, raisons_col, sname, pop_counts = pop_here)
-  cat('\nRaisons (post-stratifié):\n')
-  afficher_table(post_r)
-  post_l <- poststrat_simple(data, limites_col, sname, pop_counts = pop_here)
-  cat('\nLimites (post-stratifié):\n')
-  afficher_table(post_l)
-}
-
-# Fin
+# Fin (version courte)
 cat('\nPost-stratifié - USAGES (par année d\'étude)\n')
 
 print(post_usages_annee)
