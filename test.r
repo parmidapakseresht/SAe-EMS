@@ -11,6 +11,16 @@ library(tidyr)
 library(stringr)
 
 # =============================================================================
+# ANALYSE DES FREQUENCES D'UTILISATION DES IA GENERATIVES
+# =============================================================================
+
+freq_util_chatgpt <- data_filtre$X36..ChatGPT
+freq_util_deepl <- data_filtre$X37..DeepL
+freq_util_copilot <- data_filtre$X38..Copilot
+freq_util_grammarly <- data_filtre$X39..Grammarly
+freq_util_perplexity <- data_filtre$X40..Perplexity
+
+# =============================================================================
 # ANALYSE DES USAGES, RAISONS ET LIMITES
 # =============================================================================
 
@@ -153,4 +163,46 @@ afficher_resultats(limites_results, "ANALYSE DES LIMITES")
 # Sauvegarder les résultats
 estim_prop_usages <- usages_results
 estim_prop_raisons <- raisons_results
-estim_prop_limites <- limites_results 
+estim_prop_limites <- limites_results
+
+# ==========================
+# FRÉQUENCES D'UTILISATION
+# ==========================
+
+# Variables de fréquence (colonnes individuelles)
+freq_vars <- list(
+  ChatGPT = data_filtre$X36..ChatGPT,
+  DeepL = data_filtre$X37..DeepL,
+  Copilot = data_filtre$X38..Copilot,
+  Grammarly = data_filtre$X39..Grammarly,
+  Perplexity = data_filtre$X40..Perplexity,
+  Autre = data_filtre$X41..Autre
+)
+
+freq_results_list <- list()
+cat('\n', strrep('=', 80), '\n')
+cat('ANALYSE DES FRÉQUENCES D\'UTILISATION (VARIABLES INDIVIDUELLES)', '\n')
+cat(strrep('=', 80), '\n')
+
+for (name in names(freq_vars)) {
+  vec <- freq_vars[[name]]
+  # Compter toutes les modalités y compris les NA
+  tab <- table(factor(vec, exclude = NULL), useNA = 'ifany')
+  modalites <- names(tab)
+  eff <- as.numeric(tab)
+  df <- data.frame(modalite = modalites, effectif = eff, stringsAsFactors = FALSE)
+  # Remplacer la modalité NA par "Non-réponse"
+  df$modalite[is.na(df$modalite)] <- 'Non-réponse'
+
+  # Calculer stats (proportion, variance corrigée, IC)
+  stats <- calculer_stats(df$effectif, n, N_population)
+  df2 <- cbind(df, stats)
+
+  cat('\n-- Variable :', name, '--\n')
+  afficher_resultats(df2, paste('Fréquences :', name))
+
+  freq_results_list[[name]] <- df2
+}
+
+# Sauvegarder les résultats des fréquences
+estim_freqs <- freq_results_list
