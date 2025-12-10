@@ -14,14 +14,18 @@ library(stringr)
 # ANALYSE DES USAGES, RAISONS ET LIMITES
 # =============================================================================
 
-# Fonction simple pour compter les modalités
+# Fonction simple pour compter les modalités (y compris les non-réponses)
 compter_modalites <- function(vecteur, sep = ";") {
   # Créer un vecteur vide pour stocker tous les éléments
   tous_elements <- c()
+  n_non_repondants <- 0
   
   # Boucler sur chaque réponse
   for (i in 1:length(vecteur)) {
-    if (!is.na(vecteur[i]) & vecteur[i] != "") {
+    if (is.na(vecteur[i]) | vecteur[i] == "") {
+      # Compter les non-réponses
+      n_non_repondants <- n_non_repondants + 1
+    } else {
       # Séparer les éléments par le séparateur
       elements <- strsplit(vecteur[i], sep)[[1]]
       # Enlever les espaces
@@ -40,16 +44,28 @@ compter_modalites <- function(vecteur, sep = ";") {
     effectif = as.numeric(table_resultats)
   )
   
+  # Ajouter une ligne pour les non-répondants
+  if (n_non_repondants > 0) {
+    resultat <- rbind(resultat, data.frame(
+      modalite = "Non-réponse",
+      effectif = n_non_repondants
+    ))
+  }
+  
   return(resultat)
 }
 
 # Fonction pour calculer la proportion et l'IC
-calculer_stats <- function(effectifs, n_repondants) {
+calculer_stats <- function(effectifs, n_repondants, N_population) {
   # Calculer la proportion
   p <- effectifs / n_repondants
   
-  # Calculer la variance
-  var_p <- p * (1 - p) / n_repondants
+  # Taux de sondage
+  f <- n_repondants / N_population  # Taux de sondage
+  
+  # Variance avec correction pour population finie
+  # Var(p) = p(1-p)/n * (1-f)
+  var_p <- (p * (1 - p) / n_repondants) * (1 - f)
   
   # Calculer l'écart-type
   et_p <- sqrt(var_p)
@@ -84,29 +100,55 @@ limites <- data_filtre$X53..RP_PN_IALimites
 # Nombre de répondants
 n <- nrow(data_filtre)
 
+# Fonction pour afficher les résultats de manière claire
+afficher_resultats <- function(resultats, titre) {
+  cat("\n")
+  cat(strrep("=", 80), "\n")
+  cat(titre, "\n")
+  cat(strrep("=", 80), "\n\n")
+  
+  for (i in 1:nrow(resultats)) {
+    cat("Modalité :", resultats$modalite[i], "\n")
+    cat("  Effectif                     :", resultats$effectif[i], "\n")
+    cat("  Estimateur de proportion (p) :", round(resultats$proportion[i], 4), 
+        "(", round(resultats$pourcentage[i], 2), "% )\n")
+    cat("  Variance de l'estimateur     :", round(resultats$variance[i], 6), "\n")
+    cat("  Écart-type de l'estimateur   :", round(resultats$ecart_type[i], 4), "\n")
+    cat("  Intervalle de confiance 95%  : [", 
+        round(resultats$IC_inf[i], 4), " ; ", 
+        round(resultats$IC_sup[i], 4), "]\n")
+    cat("                                 [", 
+        round(resultats$IC_inf[i]*100, 2), "% ; ", 
+        round(resultats$IC_sup[i]*100, 2), "%]\n")
+    cat("\n")
+  }
+}
+
+N_population <- 5354
+
 # ===== USAGES =====
 print("===== USAGES =====")
 usages_count <- compter_modalites(usages)
 usages_count <- usages_count[order(-usages_count$effectif), ]
-usages_stats <- calculer_stats(usages_count$effectif, n)
+usages_stats <- calculer_stats(usages_count$effectif, n, N_population)
 usages_results <- cbind(usages_count, usages_stats)
-print(usages_results)
+afficher_resultats(usages_results, "ANALYSE DES USAGES")
 
 # ===== RAISONS =====
 print("===== RAISONS =====")
 raisons_count <- compter_modalites(raisons)
 raisons_count <- raisons_count[order(-raisons_count$effectif), ]
-raisons_stats <- calculer_stats(raisons_count$effectif, n)
+raisons_stats <- calculer_stats(raisons_count$effectif, n, N_population)
 raisons_results <- cbind(raisons_count, raisons_stats)
-print(raisons_results)
+afficher_resultats(raisons_results, "ANALYSE DES RAISONS")
 
 # ===== LIMITES =====
 print("===== LIMITES =====")
 limites_count <- compter_modalites(limites)
 limites_count <- limites_count[order(-limites_count$effectif), ]
-limites_stats <- calculer_stats(limites_count$effectif, n)
+limites_stats <- calculer_stats(limites_count$effectif, n, N_population)
 limites_results <- cbind(limites_count, limites_stats)
-print(limites_results)
+afficher_resultats(limites_results, "ANALYSE DES LIMITES")
 
 # Sauvegarder les résultats
 estim_prop_usages <- usages_results
