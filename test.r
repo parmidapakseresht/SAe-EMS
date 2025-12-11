@@ -1,144 +1,88 @@
-# Chargement des données
-data <- read.csv("Extractionfusion_pour_CB_Termine.csv", sep=";")
+# === CHARGEMENT DES DONNÉES (une seule fois) ===
+data <- read.csv("Extractionfusion_pour_CB_Termine.csv", sep = ";")
+data <- subset(data, data$X96..DATE_ENREG <= "03/12/2025 15:30:00")
+n <- nrow(data)
 
-# Filtrer les données
-filtre <- data$X96..DATE_ENREG <= "03/12/2025 15:30:00"
-data_filtre <- subset(data, filtre)
-
-# Charger les packages
-library(dplyr)
-library(tidyr)
-library(stringr)
-
-
-# =============================================================================
-# ANALYSE DES USAGES, RAISONS ET LIMITES
-# =============================================================================
-
-# Fonction simple pour compter les modalités (y compris les non-réponses)
-compter_modalites <- function(vecteur, sep = ";") {
-  # Créer un vecteur vide pour stocker tous les éléments
-  tous_elements <- c()
-  n_non_repondants <- 0
+# === FONCTION SIMPLE POUR ANALYSER UNE COLONNE ===
+analyser_col <- function(col_name, titre, sep = ";") {
+  cat("\n===== ", titre, " =====\n")
   
-  # Boucler sur chaque réponse
-  for (i in 1:length(vecteur)) {
-    if (is.na(vecteur[i]) | vecteur[i] == "") {
-      # Compter les non-réponses
-      n_non_repondants <- n_non_repondants + 1
-    } else {
-      # Séparer les éléments par le séparateur
-      elements <- strsplit(vecteur[i], sep)[[1]]
-      # Enlever les espaces
-      elements <- trimws(elements)
-      # Ajouter au vecteur global
-      tous_elements <- c(tous_elements, elements)
+  v <- data[[col_name]]
+  
+  # Extraire toutes les modalités (réponses multiples)
+  elements <- c()
+  for (i in 1:length(v)) {
+    if (!is.na(v[i]) && v[i] != "") {
+      parts <- strsplit(v[i], sep)[[1]]
+      parts <- trimws(parts)
+      elements <- c(elements, parts)
     }
   }
   
-  # Compter les occurrences
-  table_resultats <- table(tous_elements)
-  
-  # Créer un dataframe avec les résultats
-  resultat <- data.frame(
-    modalite = names(table_resultats),
-    effectif = as.numeric(table_resultats)
-  )
-  
-  # Ajouter une ligne pour les non-répondants
-  if (n_non_repondants > 0) {
-    resultat <- rbind(resultat, data.frame(
-      modalite = "Non-réponse",
-      effectif = n_non_repondants
-    ))
+  # Compter les modalités
+  modalites <- unique(elements)
+  tab <- data.frame(modalite = character(), effectif = numeric())
+  for (m in modalites) {
+    eff <- sum(elements == m)
+    tab <- rbind(tab, data.frame(modalite = m, effectif = eff))
   }
   
-  return(resultat)
+  # Ajouter non-réponses
+  n_non <- sum(is.na(v) | v == "")
+  tab <- rbind(tab, data.frame(modalite = "Non-reponse", effectif = n_non))
+  
+  # Trier par effectif décroissant
+  tab <- tab[order(-tab$effectif), ]
+  
+  # Calculer stats simples
+  tab$proportion <- tab$effectif / n
+  tab$variance <- tab$proportion * (1 - tab$proportion) / n
+  tab$se <- sqrt(tab$variance)
+  tab$IC_low <- pmax(0, tab$proportion - 1.96 * tab$se)
+  tab$IC_high <- pmin(1, tab$proportion + 1.96 * tab$se)
+  tab$pct <- tab$proportion * 100
+  
+  print(tab, row.names = FALSE)
 }
 
-# Fonction pour calculer la proportion et l'IC
-calculer_stats <- function(effectifs, n_repondants, N_population) {
-  # Calculer la proportion
-  p <- effectifs / n_repondants
-  
-  # Taux de sondage
-  f <- n_repondants / N_population  # Taux de sondage
-  
-  # Variance avec correction pour population finie
-  # Var(p) = p(1-p)/n * (1-f)
-  var_p <- (p * (1 - p) / n_repondants) * (1 - f)
-  
-  # Calculer l'écart-type
-  et_p <- sqrt(var_p)
-  
-  # Intervalle de confiance à 95%
-  z <- 1.96
-  ic_inf <- p - z * et_p
-  ic_sup <- p + z * et_p
-  
-  # S'assurer que l'IC est entre 0 et 1
-  ic_inf <- pmax(0, ic_inf)
-  ic_sup <- pmin(1, ic_sup)
-  
-  # Créer un dataframe avec les résultats
-  resultat <- data.frame(
-    proportion = p,
-    pourcentage = p * 100,
-    variance = var_p,
-    ecart_type = et_p,
-    IC_inf = ic_inf,
-    IC_sup = ic_sup
-  )
-  
-  return(resultat)
-}
+# === ANALYSES DES RÉPONSES MULTIPLES ===
+analyser_col("X45..RP_PN_IA_usages", "USAGES")
+analyser_col("X47..RP_PN_IA_raisons", "RAISONS")
+analyser_col("X53..RP_PN_IALimites", "LIMITES")
 
-# Extraire les colonnes d'intérêt
-usages <- data_filtre$X45..RP_PN_IA_usages
-raisons <- data_filtre$X47..RP_PN_IA_raisons
-limites <- data_filtre$X53..RP_PN_IALimites
-
-# Nombre de répondants
-n <- nrow(data_filtre)
-
-# Fonction pour afficher les résultats de manière claire
-afficher_resultats <- function(resultats, titre) {
-  cat("\n")
-  cat(strrep("=", 80), "\n")
-  cat(titre, "\n")
-  cat(strrep("=", 80), "\n\n")
+# === ANALYSES DES FRÉQUENCES (réponses simples) ===
+analyser_freq <- function(col_name, titre) {
+  cat("\n===== ", titre, " =====\n")
   
-  for (i in 1:nrow(resultats)) {
-    cat("Modalité :", resultats$modalite[i], "\n")
-    cat("  Effectif                     :", resultats$effectif[i], "\n")
-    cat("  Estimateur de proportion (p) :", round(resultats$proportion[i], 4), 
-        "(", round(resultats$pourcentage[i], 2), "% )\n")
-    cat("  Variance de l'estimateur     :", round(resultats$variance[i], 6), "\n")
-    cat("  Écart-type de l'estimateur   :", round(resultats$ecart_type[i], 4), "\n")
-    cat("  Intervalle de confiance 95%  : [", 
-        round(resultats$IC_inf[i], 4), " ; ", 
-        round(resultats$IC_sup[i], 4), "]\n")
-    cat("                                 [", 
-        round(resultats$IC_inf[i]*100, 2), "% ; ", 
-        round(resultats$IC_sup[i]*100, 2), "%]\n")
-    cat("\n")
+  v <- data[[col_name]]
+  
+  # Compter les modalités (pas de séparation)
+  tab <- data.frame(modalite = unique(v), effectif = NA)
+  for (i in 1:nrow(tab)) {
+    tab$effectif[i] <- sum(v == tab$modalite[i])
   }
+  
+  # Trier par effectif décroissant
+  tab <- tab[order(-tab$effectif), ]
+  
+  # Calculer stats
+  tab$proportion <- tab$effectif / n
+  tab$variance <- tab$proportion * (1 - tab$proportion) / n
+  tab$se <- sqrt(tab$variance)
+  tab$IC_low <- pmax(0, tab$proportion - 1.96 * tab$se)
+  tab$IC_high <- pmin(1, tab$proportion + 1.96 * tab$se)
+  tab$pct <- tab$proportion * 100
+  
+  print(tab, row.names = FALSE)
 }
 
-N_population <- 5354
-
-# ===== USAGES =====
-print("===== USAGES =====")
-usages_count <- compter_modalites(usages)
-usages_count <- usages_count[order(-usages_count$effectif), ]
-usages_stats <- calculer_stats(usages_count$effectif, n, N_population)
-usages_results <- cbind(usages_count, usages_stats)
-afficher_resultats(usages_results, "ANALYSE DES USAGES")
-
-# ===== RAISONS =====
-print("===== RAISONS =====")
-raisons_count <- compter_modalites(raisons)
-# ULTRA-SIMPLE : code basique pour débutant
+# Appliquer à chaque fréquence
+analyser_freq("X36..ChatGPT", "CHATGPT")
+analyser_freq("X37..DeepL", "DEEPL")
+analyser_freq("X38..Copilot", "COPILOT")
+analyser_freq("X39..Grammarly", "GRAMMARLY")
+analyser_freq("X40..Perplexity", "PERPLEXITY")
+analyser_freq("X41..Autre", "AUTRE")
 # Charger données
 data <- read.csv("Extractionfusion_pour_CB_Termine.csv", sep = ";")
 data <- subset(data, data$X96..DATE_ENREG <= "03/12/2025 15:30:00")
