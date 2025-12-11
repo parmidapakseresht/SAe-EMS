@@ -82,10 +82,12 @@ if (test_groupe$p.value < 0.05) {
 }
 
 
-print(">>> DÉBUT DU CALAGE <<<")
+print(">>> CALAGE <<<")
 
 Sexe_F <- as.numeric(data$Sexe == "F")
+Sexe_F
 Sexe_M <- as.numeric(data$Sexe == "M")
+Sexe_M
 
 Annee_1 <- as.numeric(data$Annee == "BUT1")
 Annee_2 <- as.numeric(data$Annee == "BUT2")
