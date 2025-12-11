@@ -62,6 +62,8 @@ if (test_sexe$p.value < 0.05) {
   print("CONCLUSION: Sexe -> Échantillon REPRÉSENTATIF (p >= 0.05) : redressement non nécessaire")
 }
 
+
+
 print("--- TEST CHI2 : GROUPES ---")
 groupe_obs <- table(data$Groupe)
 groupe_theo_counts <- c(
@@ -81,13 +83,35 @@ if (test_groupe$p.value < 0.05) {
   print("CONCLUSION: Groupes -> Échantillon REPRÉSENTATIF (p >= 0.05) : redressement non nécessaire")
 }
 
+print("--- TEST CHI2 : ANNÉE ---")
+annee_obs <- table(data$Annee)
+annee_theo_counts <- c("BUT1" = pop_BUT1, "BUT2" = pop_BUT2, "BUT3" = pop_BUT3)
+annee_theo_prob <- annee_theo_counts / sum(annee_theo_counts)
+common_annees <- intersect(names(annee_obs), names(annee_theo_prob))
+test_annee <- chisq.test(annee_obs[common_annees], p = annee_theo_prob[common_annees])
+print(test_annee)
+if (test_annee$p.value < 0.05) {
+  print("CONCLUSION: Année -> Échantillon BIAISÉ (p < 0.05) : redressement recommandé")
+} else {
+  print("CONCLUSION: Année -> Échantillon REPRÉSENTATIF (p >= 0.05) : redressement non nécessaire")
+}
+
+print("--- TEST CHI2 : BOURSE ---")
+bourse_obs <- table(data$Bourse)
+bourse_obs_prop <- bourse_obs / sum(bourse_obs)
+bourse_theo_prob <- bourse_obs_prop
+test_bourse <- chisq.test(bourse_obs, p = bourse_theo_prob[names(bourse_obs)])
+print(test_bourse)
+if (test_bourse$p.value < 0.05) {
+  print("CONCLUSION: Bourse -> Échantillon BIAISÉ (p < 0.05) : redressement recommandé")
+} else {
+  print("CONCLUSION: Bourse -> Échantillon REPRÉSENTATIF (p >= 0.05) : redressement non nécessaire")
+}
 
 print(">>> CALAGE <<<")
 
 Sexe_F <- as.numeric(data$Sexe == "F")
-Sexe_F
 Sexe_M <- as.numeric(data$Sexe == "M")
-Sexe_M
 
 Annee_1 <- as.numeric(data$Annee == "BUT1")
 Annee_2 <- as.numeric(data$Annee == "BUT2")
