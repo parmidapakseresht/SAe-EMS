@@ -138,68 +138,174 @@ afficher_resultats(usages_results, "ANALYSE DES USAGES")
 # ===== RAISONS =====
 print("===== RAISONS =====")
 raisons_count <- compter_modalites(raisons)
-# VERSION TRÈS SIMPLE — pour débutant
-#  - compte les modalités (y compris non-réponses)
-#  - calcule proportion p = effectif / n, variance p(1-p)/n et IC95
-
-# charger et filtrer (si besoin)
-data <- read.csv("Extractionfusion_pour_CB_Termine.csv", sep = ";", stringsAsFactors = FALSE)
+# ULTRA-SIMPLE : code basique pour débutant
+# Charger données
+data <- read.csv("Extractionfusion_pour_CB_Termine.csv", sep = ";")
 data <- subset(data, data$X96..DATE_ENREG <= "03/12/2025 15:30:00")
+n <- nrow(data)
 
-n <- nrow(data) # taille de l'échantillon
-
-# fonction minimale : analyse une colonne à choix multiple
-analyse_col <- function(col_name) {
-  v <- data[[col_name]]
-  # compter modalités
-  counts <- table(unlist(strsplit(paste(v[!is.na(v) & v != ""], collapse = ";"), ";")))
-  counts <- as.data.frame(counts, stringsAsFactors = FALSE)
-  names(counts) <- c("modalite", "effectif")
-  # ajouter non-réponses
-  n_non <- sum(is.na(v) | v == "")
-  if (n_non > 0) counts <- rbind(counts, data.frame(modalite = "Non-reponse", effectif = n_non))
-  # calculs simples
-  counts$proportion <- counts$effectif / n
-  counts$variance <- counts$proportion * (1 - counts$proportion) / n
-  counts$se <- sqrt(counts$variance)
-  counts$IC_low <- pmax(0, counts$proportion - 1.96 * counts$se)
-  counts$IC_high <- pmin(1, counts$proportion + 1.96 * counts$se)
-  counts$pourcent <- counts$proportion * 100
-  counts[order(-counts$effectif), ]
+# ============= USAGES =============
+cat("\n===== USAGES =====\n")
+v <- data$X45..RP_PN_IA_usages
+elements <- c()
+for (i in 1:length(v)) {
+  if (!is.na(v[i]) && v[i] != "") {
+    parts <- strsplit(v[i], ";")[[1]]
+    parts <- trimws(parts)
+    elements <- c(elements, parts)
+  }
 }
-
-# colonnes d'intérêt
-cols <- c("X45..RP_PN_IA_usages", "X47..RP_PN_IA_raisons", "X53..RP_PN_IALimites")
-
-for (cname in cols) {
-  cat('\n', '--- Analyse simple :', cname, '---\n')
-  print(analyse_col(cname), row.names = FALSE)
+modalites <- unique(elements)
+tab_usages <- data.frame(modalite = character(), effectif = numeric())
+for (m in modalites) {
+  eff <- sum(elements == m)
+  tab_usages <- rbind(tab_usages, data.frame(modalite = m, effectif = eff))
 }
+n_non <- sum(is.na(v) | v == "")
+tab_usages <- rbind(tab_usages, data.frame(modalite = "Non-reponse", effectif = n_non))
+tab_usages <- tab_usages[order(-tab_usages$effectif), ]
+tab_usages$proportion <- tab_usages$effectif / n
+tab_usages$variance <- tab_usages$proportion * (1 - tab_usages$proportion) / n
+tab_usages$se <- sqrt(tab_usages$variance)
+tab_usages$IC_low <- pmax(0, tab_usages$proportion - 1.96 * tab_usages$se)
+tab_usages$IC_high <- pmin(1, tab_usages$proportion + 1.96 * tab_usages$se)
+tab_usages$pct <- tab_usages$proportion * 100
+print(tab_usages, row.names = FALSE)
 
-# === Analyse des fréquences d'utilisation (variables individuelles) ===
-# colonnes individuelles de fréquence
-freq_cols <- c("X36..ChatGPT", "X37..DeepL", "X38..Copilot", "X39..Grammarly", "X40..Perplexity", "X41..Autre")
-
-for (fc in freq_cols) {
-  if (!fc %in% names(data)) next
-  cat('\n', '--- Fréquences :', fc, '---\n')
-  vec <- data[[fc]]
-  tab <- table(factor(vec, exclude = NULL), useNA = 'ifany')
-  df <- as.data.frame(tab, stringsAsFactors = FALSE)
-  names(df) <- c('modalite', 'effectif')
-  # remplacer NA par "Non-reponse"
-  df$modalite[is.na(df$modalite)] <- 'Non-reponse'
-  df$proportion <- df$effectif / n
-  df$variance <- df$proportion * (1 - df$proportion) / n
-  df$se <- sqrt(df$variance)
-  df$IC_low <- pmax(0, df$proportion - 1.96 * df$se)
-  df$IC_high <- pmin(1, df$proportion + 1.96 * df$se)
-  df$pourcent <- df$proportion * 100
-  df <- df[order(-df$effectif), ]
-  print(df, row.names = FALSE)
+# ============= RAISONS =============
+cat("\n===== RAISONS =====\n")
+v <- data$X47..RP_PN_IA_raisons
+elements <- c()
+for (i in 1:length(v)) {
+  if (!is.na(v[i]) && v[i] != "") {
+    parts <- strsplit(v[i], ";")[[1]]
+    parts <- trimws(parts)
+    elements <- c(elements, parts)
+  }
 }
+modalites <- unique(elements)
+tab_raisons <- data.frame(modalite = character(), effectif = numeric())
+for (m in modalites) {
+  eff <- sum(elements == m)
+  tab_raisons <- rbind(tab_raisons, data.frame(modalite = m, effectif = eff))
+}
+n_non <- sum(is.na(v) | v == "")
+tab_raisons <- rbind(tab_raisons, data.frame(modalite = "Non-reponse", effectif = n_non))
+tab_raisons <- tab_raisons[order(-tab_raisons$effectif), ]
+tab_raisons$proportion <- tab_raisons$effectif / n
+tab_raisons$variance <- tab_raisons$proportion * (1 - tab_raisons$proportion) / n
+tab_raisons$se <- sqrt(tab_raisons$variance)
+tab_raisons$IC_low <- pmax(0, tab_raisons$proportion - 1.96 * tab_raisons$se)
+tab_raisons$IC_high <- pmin(1, tab_raisons$proportion + 1.96 * tab_raisons$se)
+tab_raisons$pct <- tab_raisons$proportion * 100
+print(tab_raisons, row.names = FALSE)
 
-# Fin (version courte)
+# ============= LIMITES =============
+cat("\n===== LIMITES =====\n")
+v <- data$X53..RP_PN_IALimites
+elements <- c()
+for (i in 1:length(v)) {
+  if (!is.na(v[i]) && v[i] != "") {
+    parts <- strsplit(v[i], ";")[[1]]
+    parts <- trimws(parts)
+    elements <- c(elements, parts)
+  }
+}
+modalites <- unique(elements)
+tab_limites <- data.frame(modalite = character(), effectif = numeric())
+for (m in modalites) {
+  eff <- sum(elements == m)
+  tab_limites <- rbind(tab_limites, data.frame(modalite = m, effectif = eff))
+}
+n_non <- sum(is.na(v) | v == "")
+tab_limites <- rbind(tab_limites, data.frame(modalite = "Non-reponse", effectif = n_non))
+tab_limites <- tab_limites[order(-tab_limites$effectif), ]
+tab_limites$proportion <- tab_limites$effectif / n
+tab_limites$variance <- tab_limites$proportion * (1 - tab_limites$proportion) / n
+tab_limites$se <- sqrt(tab_limites$variance)
+tab_limites$IC_low <- pmax(0, tab_limites$proportion - 1.96 * tab_limites$se)
+tab_limites$IC_high <- pmin(1, tab_limites$proportion + 1.96 * tab_limites$se)
+tab_limites$pct <- tab_limites$proportion * 100
+print(tab_limites, row.names = FALSE)
+
+# ============= FRÉQUENCES =============
+cat("\n===== CHATGPT =====\n")
+v <- data$X36..ChatGPT
+tab <- data.frame(modalite = unique(v), effectif = NA)
+for (i in 1:nrow(tab)) { tab$effectif[i] <- sum(v == tab$modalite[i]) }
+tab <- tab[order(-tab$effectif), ]
+tab$proportion <- tab$effectif / n
+tab$variance <- tab$proportion * (1 - tab$proportion) / n
+tab$se <- sqrt(tab$variance)
+tab$IC_low <- pmax(0, tab$proportion - 1.96 * tab$se)
+tab$IC_high <- pmin(1, tab$proportion + 1.96 * tab$se)
+tab$pct <- tab$proportion * 100
+print(tab, row.names = FALSE)
+
+cat("\n===== DEEPL =====\n")
+v <- data$X37..DeepL
+tab <- data.frame(modalite = unique(v), effectif = NA)
+for (i in 1:nrow(tab)) { tab$effectif[i] <- sum(v == tab$modalite[i]) }
+tab <- tab[order(-tab$effectif), ]
+tab$proportion <- tab$effectif / n
+tab$variance <- tab$proportion * (1 - tab$proportion) / n
+tab$se <- sqrt(tab$variance)
+tab$IC_low <- pmax(0, tab$proportion - 1.96 * tab$se)
+tab$IC_high <- pmin(1, tab$proportion + 1.96 * tab$se)
+tab$pct <- tab$proportion * 100
+print(tab, row.names = FALSE)
+
+cat("\n===== COPILOT =====\n")
+v <- data$X38..Copilot
+tab <- data.frame(modalite = unique(v), effectif = NA)
+for (i in 1:nrow(tab)) { tab$effectif[i] <- sum(v == tab$modalite[i]) }
+tab <- tab[order(-tab$effectif), ]
+tab$proportion <- tab$effectif / n
+tab$variance <- tab$proportion * (1 - tab$proportion) / n
+tab$se <- sqrt(tab$variance)
+tab$IC_low <- pmax(0, tab$proportion - 1.96 * tab$se)
+tab$IC_high <- pmin(1, tab$proportion + 1.96 * tab$se)
+tab$pct <- tab$proportion * 100
+print(tab, row.names = FALSE)
+
+cat("\n===== GRAMMARLY =====\n")
+v <- data$X39..Grammarly
+tab <- data.frame(modalite = unique(v), effectif = NA)
+for (i in 1:nrow(tab)) { tab$effectif[i] <- sum(v == tab$modalite[i]) }
+tab <- tab[order(-tab$effectif), ]
+tab$proportion <- tab$effectif / n
+tab$variance <- tab$proportion * (1 - tab$proportion) / n
+tab$se <- sqrt(tab$variance)
+tab$IC_low <- pmax(0, tab$proportion - 1.96 * tab$se)
+tab$IC_high <- pmin(1, tab$proportion + 1.96 * tab$se)
+tab$pct <- tab$proportion * 100
+print(tab, row.names = FALSE)
+
+cat("\n===== PERPLEXITY =====\n")
+v <- data$X40..Perplexity
+tab <- data.frame(modalite = unique(v), effectif = NA)
+for (i in 1:nrow(tab)) { tab$effectif[i] <- sum(v == tab$modalite[i]) }
+tab <- tab[order(-tab$effectif), ]
+tab$proportion <- tab$effectif / n
+tab$variance <- tab$proportion * (1 - tab$proportion) / n
+tab$se <- sqrt(tab$variance)
+tab$IC_low <- pmax(0, tab$proportion - 1.96 * tab$se)
+tab$IC_high <- pmin(1, tab$proportion + 1.96 * tab$se)
+tab$pct <- tab$proportion * 100
+print(tab, row.names = FALSE)
+
+cat("\n===== AUTRE =====\n")
+v <- data$X41..Autre
+tab <- data.frame(modalite = unique(v), effectif = NA)
+for (i in 1:nrow(tab)) { tab$effectif[i] <- sum(v == tab$modalite[i]) }
+tab <- tab[order(-tab$effectif), ]
+tab$proportion <- tab$effectif / n
+tab$variance <- tab$proportion * (1 - tab$proportion) / n
+tab$se <- sqrt(tab$variance)
+tab$IC_low <- pmax(0, tab$proportion - 1.96 * tab$se)
+tab$IC_high <- pmin(1, tab$proportion + 1.96 * tab$se)
+tab$pct <- tab$proportion * 100
+print(tab, row.names = FALSE)
 cat('\nPost-stratifié - USAGES (par année d\'étude)\n')
 
 print(post_usages_annee)
