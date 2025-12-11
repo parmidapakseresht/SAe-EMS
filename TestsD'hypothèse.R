@@ -1,147 +1,134 @@
-data <- read.csv("data_filtre.csv", sep=",", stringsAsFactors = TRUE)
+install.packages("sampling")
+library(sampling)
 
-# Rename columns to standard names
+data <- read.csv("data_filtre.csv", sep=",", stringsAsFactors = FALSE)
+
 names(data)[grep("Sexe", names(data))[1]] <- "Sexe"
 names(data)[grep("Annee", names(data))[1]] <- "Annee"
 names(data)[grep("bourse", names(data))[1]] <- "Bourse"
+names(data)[grep("Mention", names(data))[1]] <- "Mention"
 
-# ==============================================================================
-# TEST 1: SEXE (Gender)
-# ==============================================================================
-print("--- TEST SEXE ---")
-sexe_table <- table(data$Sexe)
-prop_sexe <- c("F" = 0.4082, "M" = 0.5918)
-prop_sexe <- prop_sexe / sum(prop_sexe)
-test_sexe <- chisq.test(sexe_table, p = prop_sexe[names(sexe_table)])
+print(">>> CRÉATION DES GROUPES <<<")
+
+assign_group <- function(mention) {
+  if (mention %in% c("Gestion des Entreprises et des Administrations", 
+                     "Techniques de Commercialisation", 
+                     "Carrières Juridiques", 
+                     "Carrières Sociales", 
+                     "Information - Communication")) {
+    return("1) Gestion et Commerce")
+    
+  } else if (mention %in% c("Informatique", 
+                            "Science des Données")) {
+    return("2) Informatique et Data")
+    
+  } else if (mention %in% c("Réseaux et Télécommunications")) {
+    return("3) Réseaux et Télécoms")
+    
+  } else if (mention %in% c("Génie Civil Construction Durable", 
+                            "Génie Electrique et Informatique Industrielle", 
+                            "Génie Mécanique et Productique")) {
+    return("4) Sciences et Technologies")
+    
+  } else {
+    return(NA)
+  }
+}
+
+data$Groupe <- sapply(data$Mention, assign_group)
+
+data <- subset(data, !is.na(Groupe))
+
+pop_BUT1 <- 1736
+pop_BUT2 <- 1337
+pop_BUT3 <- 1201
+
+pop_G1_Gestion <- 2475
+pop_G2_Info    <- 626
+pop_G3_Reseaux <- 234
+pop_G4_Science <- 939
+
+pop_F <- round(4274 * 0.4082)
+pop_M <- 4274 - pop_F
+
+print("--- TEST CHI2 : SEXE ---")
+sexe_obs <- table(data$Sexe)
+sexe_theo_prob <- c("F" = 0.4082, "M" = 0.5918)
+test_sexe <- chisq.test(sexe_obs, p = sexe_theo_prob[names(sexe_obs)])
 print(test_sexe)
-
-# ==============================================================================
-# TEST 2: ANNÉE (Academic Year)
-# ==============================================================================
-print("--- TEST ANNÉE ---")
-annee_table <- table(data$Annee)
-prop_annee <- c("BUT1" = 0.4109, "BUT2" = 0.3122, "BUT3" = 0.2768)
-prop_annee <- prop_annee / sum(prop_annee)
-test_annee <- chisq.test(annee_table, p = prop_annee[names(annee_table)])
-print(test_annee)
-
-# ==============================================================================
-# TEST 3: BOURSE (Scholarship)
-# ==============================================================================
-print("--- TEST BOURSE ---")
-data_bourse <- subset(data, Bourse != "" & !is.na(Bourse))
-bourse_table <- table(data_bourse$Bourse)
-prop_bourse <- c("Boursier" = 0.2810, "Non boursier" = 0.7190)
-prop_bourse <- prop_bourse / sum(prop_bourse)
-test_bourse <- chisq.test(bourse_table, p = prop_bourse[names(bourse_table)])
-print(test_bourse)
-
-# ==============================================================================
-# TEST 4: MENTION (Field of Study)
-# ==============================================================================
-print(">>> TEST MENTION <<<")
-
-mention_table <- table(data$Mention)
-print(mention_table)
-
-# Population targets for each mention (2025-26)
-targets_mention <- c(
-  "Carrières Juridiques"                           = 142 + 116 + 101,
-  "Carrières Sociales"                             = 84 + 63 + 64,
-  "Chimie"                                          = 87 + 57 + 60,
-  "Génie Civil Construction Durable"               = 131 + 74 + 86,
-  "Génie Electrique et Informatique Industrielle"  = 157 + 102 + 81,
-  "Génie Mécanique et Productique"                 = 122 + 93 + 93,
-  "Gestion des Entreprises et des Administrations" = 169 + 125 + 107 + 228 + 206 + 155,
-  "Information - Communication"                    = 122 + 87 + 79,
-  "Informatique"                                   = 61 + 56 + 43 + 132 + 107 + 90,
-  "Mesures Physiques"                              = 105 + 86 + 51,
-  "Métiers de la Transition et de l'Efficacité Energétiques" = 93 + 63 + 56,
-  "Métiers du Multimédia et de l'Internet"         = 109 + 92 + 87,
-  "Réseaux et Télécommunications"                  = 59 + 44 + 42 + 90 + 69 + 75,
-  "Science des Données"                            = 57 + 42 + 38,
-  "Techniques de Commercialisation"                = 157 + 120 + 118 + 84 + 77 + 71
-)
-
-# Find which mentions are in both the sample and targets
-mention_names <- names(mention_table)
-target_values <- targets_mention[mention_names]
-
-# Run chi-square test
-test_mention <- chisq.test(as.numeric(mention_table), p = target_values, rescale.p = TRUE)
-print(test_mention)
-
-# Print conclusion
-if(test_mention$p.value < 0.05) {
-  print("ALERTE : Échantillon BIAISÉ sur les Mentions (p < 0.05).")
+if (test_sexe$p.value < 0.05) {
+  print("CONCLUSION: Sexe -> Échantillon BIAISÉ (p < 0.05) : redressement recommandé")
 } else {
-  print("OK : Échantillon représentatif sur les Mentions.")
+  print("CONCLUSION: Sexe -> Échantillon REPRÉSENTATIF (p >= 0.05) : redressement non nécessaire")
 }
 
-# Show details: observed vs expected for each mention
-expected_mention <- (target_values / sum(target_values)) * sum(mention_table)
-residuals <- (as.numeric(mention_table) - expected_mention) / sqrt(expected_mention)
-
-details <- data.frame(
-  Mention = mention_names,
-  Observed = as.numeric(mention_table),
-  Expected = round(expected_mention, 2),
-  Residual = round(residuals, 2)
+print("--- TEST CHI2 : GROUPES ---")
+groupe_obs <- table(data$Groupe)
+groupe_theo_counts <- c(
+  "1) Gestion et Commerce"      = pop_G1_Gestion,
+  "2) Informatique et Data"     = pop_G2_Info,
+  "3) Réseaux et Télécoms"      = pop_G3_Reseaux,
+  "4) Sciences et Technologies" = pop_G4_Science
 )
+groupe_theo_prob <- groupe_theo_counts / sum(groupe_theo_counts)
 
-print("--- DÉTAILS PAR MENTION ---")
-print(details)
-
-# Identify over and under-represented mentions
-print("--- MENTIONS SIGNIFICATIVEMENT DIFFÉRENTES (|Residual| > 1.96) ---")
-significant <- details[abs(details$Residual) > 1.96, ]
-if(nrow(significant) > 0) {
-  print(significant)
+common_groups <- intersect(names(groupe_obs), names(groupe_theo_prob))
+test_groupe <- chisq.test(groupe_obs[common_groups], p = groupe_theo_prob[common_groups])
+print(test_groupe)
+if (test_groupe$p.value < 0.05) {
+  print("CONCLUSION: Groupes -> Échantillon BIAISÉ (p < 0.05) : redressement recommandé")
 } else {
-  print("Aucune mention significativement différente.")
+  print("CONCLUSION: Groupes -> Échantillon REPRÉSENTATIF (p >= 0.05) : redressement non nécessaire")
 }
 
-# ==============================================================================
-# CALCULATE WEIGHTS (Redressement)
-# ==============================================================================
 
-print(">>> CALCUL DES POIDS <<<")
+print(">>> DÉBUT DU CALAGE <<<")
 
-# Step 1: Calculate weight for SEXE
-freq_sexe <- table(data$Sexe) / nrow(data)
-weight_sexe <- prop_sexe[names(freq_sexe)] / freq_sexe
-sexe_df <- data.frame(
-  Sexe = names(weight_sexe),
-  w_sexe = as.numeric(weight_sexe)
+Sexe_F <- as.numeric(data$Sexe == "F")
+Sexe_M <- as.numeric(data$Sexe == "M")
+
+Annee_1 <- as.numeric(data$Annee == "BUT1")
+Annee_2 <- as.numeric(data$Annee == "BUT2")
+Annee_3 <- as.numeric(data$Annee == "BUT3")
+
+Groupe_1 <- as.numeric(data$Groupe == "1) Gestion et Commerce")
+Groupe_2 <- as.numeric(data$Groupe == "2) Informatique et Data")
+Groupe_3 <- as.numeric(data$Groupe == "3) Réseaux et Télécoms")
+Groupe_4 <- as.numeric(data$Groupe == "4) Sciences et Technologies")
+
+X <- data.frame(Sexe_F, Sexe_M, 
+                Annee_1, Annee_2, Annee_3, 
+                Groupe_1, Groupe_2, Groupe_3, Groupe_4)
+
+popTotals <- c(
+  pop_F, pop_M,              
+  pop_BUT1, pop_BUT2, pop_BUT3, 
+  pop_G1_Gestion, pop_G2_Info, pop_G3_Reseaux, pop_G4_Science
 )
 
-# Step 2: Calculate weight for ANNEE
-freq_annee <- table(data$Annee) / nrow(data)
-weight_annee <- prop_annee[names(freq_annee)] / freq_annee
-annee_df <- data.frame(
-  Annee = names(weight_annee),
-  w_annee = as.numeric(weight_annee)
-)
+N_total <- 4274
+n_sample <- nrow(data)
+d_weights <- rep(N_total / n_sample, n_sample)
 
-# Step 3: Calculate weight for MENTION
-freq_mention <- table(data$Mention) / nrow(data)
-weight_mention <- (targets_mention[names(freq_mention)] / sum(targets_mention)) / freq_mention
-mention_df <- data.frame(
-  Mention = names(weight_mention),
-  w_mention = as.numeric(weight_mention)
-)
+g_weights <- calib(Xs = X, 
+                   d = d_weights, 
+                   total = popTotals, 
+                   method = "raking",
+                   description = TRUE)
 
-# Step 4: Merge all weights into the data
-data <- merge(data, sexe_df, by = "Sexe")
-data <- merge(data, annee_df, by = "Annee")
-data <- merge(data, mention_df, by = "Mention", all.x = TRUE)
+data$Poids_Calib <- g_weights * d_weights
 
-# Step 5: Calculate final weight (product of all weights)
-data$Poids_Final <- data$w_sexe * data$w_annee * data$w_mention
+print("--- Vérification des totaux après redressement ---")
+check_sexe <- tapply(data$Poids_Calib, data$Sexe, sum)
+check_annee <- tapply(data$Poids_Calib, data$Annee, sum)
+check_groupe <- tapply(data$Poids_Calib, data$Groupe, sum)
 
-# Export weighted data
-write.csv(data, "data_redressee.csv", row.names = FALSE)
+print("Sexe (Cible vs Calé) :")
+print(check_sexe)
+print("Année (Cible vs Calé) :")
+print(check_annee)
+print("Groupe (Cible vs Calé) :")
+print(check_groupe)
 
-# Show sample of results
-print("--- SAMPLE OF WEIGHTED DATA ---")
-print(head(data[, c("Sexe", "Annee", "Mention", "w_sexe", "w_annee", "w_mention", "Poids_Final")]))
+write.csv(data, "data_redressee_calib.csv", row.names = FALSE)
+print("Fichier 'data_redressee_calib.csv' généré avec succès.")
