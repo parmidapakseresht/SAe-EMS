@@ -2,21 +2,21 @@ data <- read.csv("Extractionfusion_pour_CB_Termine.csv", sep=";")
 
 # Filtrer les données pour garder que les réponses en face à face
 filtre <- data$X96..DATE_ENREG <= "03/12/2025 15:30:00"
-data_filtre <- subset(data, filtre)
+data <- subset(data, filtre)
 
 # Variables d'intérêt
-freq_util_chatgpt <- data_filtre$X36..ChatGPT
-freq_util_deepl <- data_filtre$X37..DeepL
-freq_util_copilot <- data_filtre$X38..Copilot
-freq_util_grammarly <- data_filtre$X39..Grammarly
-freq_util_perplexity <- data_filtre$X40..Perplexity
-freq_util_autre <- data_filtre$X41..Autre
-usages <- data_filtre$X45..RP_PN_IA_usages
-raisons <- data_filtre$X47..RP_PN_IA_raisons
-limites <- data_filtre$X53..RP_PN_IALimites
+freq_util_chatgpt <- data$X36..ChatGPT
+freq_util_deepl <- data$X37..DeepL
+freq_util_copilot <- data$X38..Copilot
+freq_util_grammarly <- data$X39..Grammarly
+freq_util_perplexity <- data$X40..Perplexity
+freq_util_autre <- data$X41..Autre
+usages <- data$X45..RP_PN_IA_usages
+raisons <- data$X47..RP_PN_IA_raisons
+limites <- data$X53..RP_PN_IALimites
 
 # Définition des tailles
-n <- nrow(data_filtre)
+n <- nrow(data)
 N <- 5365
 
 # Fonction simple : calcule les proportions par modalité avec variance et IC
@@ -100,14 +100,14 @@ print(proportions_limites)
 # ============================================================================
 
 # Variables auxiliaires pour le redressement
-data_filtre$Annee <- data_filtre$DIP...Annee
-data_filtre$Sexe <- data_filtre$Individu...Sexe
-data_filtre$Bourse <- data_filtre$Type.bourse..lib..\ndata_filtre$Mention <- data_filtre$Mention
+data$Annee <- data$DIP...Annee
+data$Sexe <- data$Individu...Sexe
+data$Bourse <- data$Type.bourse..lib..\ndata$Mention <- data$Mention
 
-Annee <- data_filtre$Annee
-Mention <- data_filtre$Mention
-Sexe <- data_filtre$Sexe
-Bourse <- data_filtre$Bourse
+Annee <- data$Annee
+Mention <- data$Mention
+Sexe <- data$Sexe
+Bourse <- data$Bourse
 
 Annee <- as.character(Annee)
 Annee[is.na(Annee)] <- "NA"
